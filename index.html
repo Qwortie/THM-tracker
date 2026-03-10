@@ -459,24 +459,15 @@
     room.loadingSummary = true;
     renderCards();
 
-    fetch("https://api.anthropic.com/v1/messages", {
+    // Call Netlify proxy function — API key is kept safe server-side
+    fetch("/.netlify/functions/summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: "You are a concise cybersecurity learning assistant. When given a TryHackMe room name, write a 2-3 sentence summary of what the room covers and what key skills or tools a learner would have practised. Write in past tense as if the user just completed it. Be specific to that room — mention actual techniques, tools, or concepts covered. Keep it under 60 words. Return plain text only, no markdown.",
-        messages: [{ role: "user", content: "TryHackMe room: " + room.name }]
-      })
+      body: JSON.stringify({ roomName: room.name })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      var summary = "";
-      if (data.content && data.content.length > 0) {
-        for (var i=0; i<data.content.length; i++) {
-          if (data.content[i].type==="text") { summary = data.content[i].text.trim(); break; }
-        }
-      }
+      var summary = data.summary || "";
       for (var j=0; j<rooms.length; j++) {
         if (rooms[j].id===id) {
           rooms[j].loadingSummary = false;
@@ -490,7 +481,6 @@
       for (var j=0; j<rooms.length; j++) {
         if (rooms[j].id===id) {
           rooms[j].loadingSummary = false;
-          // Leave notes blank so user can add manually
           break;
         }
       }
