@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>THM Tracker — Qwort</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080c10; font-family: 'Courier New', monospace; color: #c8d8e8; min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080c10; }
+    ::-webkit-scrollbar-thumb { background: #1a3a5a; border-radius: 3px; }
+
+    #header {
+      border-bottom: 1px solid #1a2a3a; padding: 24px 32px 20px;
+      background: linear-gradient(180deg, #0c1520, #080c10);
+      position: sticky; top: 0; z-index: 10;
+    }
+    #header-inner { max-width: 860px; margin: 0 auto; }
+    #header-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    #logo { display: flex; align-items: center; gap: 14px; }
+    #logo-icon {
+      width: 40px; height: 40px; border-radius: 8px;
+      background: linear-gradient(135deg, #00ff88, #00ccff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; box-shadow: 0 0 18px #00ff8855;
+    }
+    #logo-title { font-size: 20px; font-weight: 700; color: #e8f4ff; letter-spacing: 1px; }
+    #logo-sub { font-size: 11px; color: #4a6a8a; letter-spacing: 2px; margin-top: 2px; }
+    #header-actions { display: flex; align-items: center; gap: 10px; }
+    #flash { font-size: 11px; color: #00ff88; letter-spacing: 1px; display: none; }
+    #profile-link {
+      font-size: 11px; color: #4a6a8a; text-decoration: none; letter-spacing: 1px;
+      padding: 8px 14px; border: 1px solid #1a2a3a; border-radius: 6px;
+    }
+    #add-btn {
+      background: linear-gradient(135deg, #00ff88, #00ccff); border: none;
+      border-radius: 6px; padding: 9px 18px; color: #080c10; font-weight: 700;
+      font-size: 13px; cursor: pointer; letter-spacing: 1px; font-family: 'Courier New', monospace;
+    }
+    #add-btn:hover { opacity: 0.88; }
+    #progress-wrap { margin-top: 18px; }
+    #progress-labels { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; color: #4a6a8a; letter-spacing: 1px; }
+    #progress-pct { color: #00ff88; }
+    #progress-track { height: 6px; background: #0f1f2f; border-radius: 3px; overflow: hidden; }
+    #progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00ff88, #00ccff); border-radius: 3px; transition: width 0.5s ease; box-shadow: 0 0 10px #00ff8866; }
+
+    #main { max-width: 860px; margin: 0 auto; padding: 28px 24px 0; }
+
+    #stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px; }
+    .stat-card { background: #0c1520; border-radius: 10px; padding: 16px 0; text-align: center; }
+    .stat-num { font-size: 34px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 10px; color: #4a6a8a; letter-spacing: 2px; margin-top: 5px; }
+
+    /* QUICK COMPLETE BAR */
+    #quick-bar {
+      background: #0a1a12; border: 1px solid #00ff8833; border-radius: 10px;
+      padding: 14px 18px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    #quick-bar label { font-size: 10px; color: #00ff8899; letter-spacing: 2px; white-space: nowrap; }
+    #quick-name {
+      flex: 1; min-width: 160px; background: #080c10; border: 1px solid #1a3a2a;
+      border-radius: 6px; padding: 8px 12px; color: #c8d8e8; font-size: 13px;
+      outline: none; font-family: 'Courier New', monospace;
+    }
+    #quick-name:focus { border-color: #00ff88; }
+    #quick-name::placeholder { color: #2a4a3a; }
+    #quick-submit {
+      background: linear-gradient(135deg, #00ff88, #00ccff); border: none;
+      border-radius: 6px; padding: 8px 16px; color: #080c10; font-weight: 700;
+      font-size: 12px; cursor: pointer; letter-spacing: 1px; font-family: 'Courier New', monospace;
+      white-space: nowrap;
+    }
+    #quick-submit:hover { opacity: 0.88; }
+    #quick-hint { font-size: 10px; color: #2a5a3a; letter-spacing: 1px; width: 100%; margin-top: -4px; }
+
+    #controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    #search {
+      flex: 1; min-width: 180px; background: #0c1520; border: 1px solid #1a2a3a;
+      border-radius: 7px; padding: 9px 14px; color: #c8d8e8; font-size: 13px;
+      outline: none; font-family: 'Courier New', monospace;
+    }
+    .filter-btn {
+      background: #0c1520; border: 1px solid #1a2a3a; border-radius: 7px;
+      padding: 9px 14px; color: #4a6a8a; font-size: 12px; cursor: pointer;
+      letter-spacing: 1px; font-family: 'Courier New', monospace;
+    }
+    .filter-btn.active { background: #0d2b1a; border-color: #00ff88; color: #00ff88; }
+
+    #cards { display: flex; flex-direction: column; gap: 12px; padding-bottom: 60px; }
+    .card { background: #0c1520; border-radius: 10px; padding: 18px 20px; transition: border-color 0.3s; }
+    .card-inner { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .card-left { flex: 1; min-width: 0; }
+    .card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+    .card-name { font-size: 16px; font-weight: 700; color: #e8f4ff; }
+    .badge { font-size: 10px; background: #0f1f2f; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px; }
+    .card-notes { font-size: 13px; color: #7a9ab8; line-height: 1.65; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+    .card-meta { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .tag { font-size: 10px; color: #00ccff; background: #00ccff11; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px; }
+    .card-date { font-size: 10px; color: #2a4a6a; }
+    .card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+    .status-btn { border-radius: 6px; padding: 5px 12px; font-size: 11px; cursor: pointer; letter-spacing: 1px; white-space: nowrap; font-family: 'Courier New', monospace; font-weight: 700; }
+    .card-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .edit-btn { background: #0f1f2f; border: 1px solid #1a2a3a; border-radius: 5px; padding: 4px 10px; color: #4a6a8a; font-size: 11px; cursor: pointer; font-family: 'Courier New', monospace; }
+    .done-btn { background: #0d2b1a; border: 1px solid #00ff8866; border-radius: 5px; padding: 4px 10px; color: #00ff88; font-size: 11px; cursor: pointer; font-family: 'Courier New', monospace; font-weight: 700; }
+    .del-btn  { background: #1a0a0a; border: 1px solid #ff446633; border-radius: 5px; padding: 4px 10px; color: #ff4466; font-size: 11px; cursor: pointer; font-family: 'Courier New', monospace; }
+    .edit-btn:hover { border-color: #4a6a8a; color: #c8d8e8; }
+    .done-btn:hover { background: #1a4a2a; border-color: #00ff88; }
+    .del-btn:hover  { background: #2a0a0a; }
+
+    /* AI SUMMARY LOADING STATE */
+    .ai-loading {
+      font-size: 12px; color: #00ff8877; letter-spacing: 1px;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .ai-loading-dots span {
+      display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+      background: #00ff88; margin: 0 2px;
+      animation: dotPulse 1.2s infinite ease-in-out;
+    }
+    .ai-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .ai-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotPulse { 0%,80%,100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+
+    @keyframes completePop { 0% { transform:scale(1); } 40% { transform:scale(1.02); } 100% { transform:scale(1); } }
+    .card.just-completed { animation: completePop 0.35s ease; }
+
+    #empty { text-align: center; color: #2a4a6a; padding: 50px 0; font-size: 13px; letter-spacing: 2px; display: none; }
+
+    /* MODAL */
+    #modal-overlay {
+      display: none; position: fixed; inset: 0; background: #000000cc;
+      align-items: center; justify-content: center; z-index: 100; padding: 20px;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal {
+      background: #0c1520; border: 1px solid #1a3a5a; border-radius: 12px;
+      padding: 28px; width: 100%; max-width: 480px;
+      box-shadow: 0 0 40px #00ff8822; max-height: 90vh; overflow-y: auto;
+    }
+    #modal-title { font-size: 15px; font-weight: 700; color: #e8f4ff; margin-bottom: 22px; letter-spacing: 1px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 10px; color: #4a6a8a; letter-spacing: 2px; margin-bottom: 5px; }
+    .field input, .field select, .field textarea {
+      width: 100%; background: #080c10; border: 1px solid #1a2a3a; border-radius: 6px;
+      padding: 9px 12px; color: #c8d8e8; font-size: 13px; outline: none;
+      font-family: 'Courier New', monospace;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: #2a4a6a; }
+    .field textarea { resize: vertical; }
+    #field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    #modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+    #cancel-btn { background: #0f1f2f; border: 1px solid #1a2a3a; border-radius: 6px; padding: 9px 20px; color: #4a6a8a; font-size: 13px; cursor: pointer; letter-spacing: 1px; font-family: 'Courier New', monospace; }
+    #save-btn   { background: linear-gradient(135deg, #00ff88, #00ccff); border: none; border-radius: 6px; padding: 9px 24px; color: #080c10; font-weight: 700; font-size: 13px; cursor: pointer; letter-spacing: 1px; font-family: 'Courier New', monospace; }
+    #cancel-btn:hover { border-color: #4a6a8a; color: #c8d8e8; }
+    #save-btn:hover { opacity: 0.88; }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <div id="header-inner">
+      <div id="header-top">
+        <div id="logo">
+          <div id="logo-icon">⚡</div>
+          <div>
+            <div id="logo-title">THM Progress Tracker</div>
+            <div id="logo-sub">QWORT // TRYHACKME.COM</div>
+          </div>
+        </div>
+        <div id="header-actions">
+          <span id="flash">Saved!</span>
+          <a id="profile-link" href="https://tryhackme.com/p/Qwort" target="_blank">MY PROFILE ↗</a>
+          <button id="add-btn" onclick="openAdd()">+ ADD ROOM</button>
+        </div>
+      </div>
+      <div id="progress-wrap">
+        <div id="progress-labels">
+          <span>OVERALL COMPLETION</span>
+          <span id="progress-pct">0/0 ROOMS · 0%</span>
+        </div>
+        <div id="progress-track"><div id="progress-fill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="stats">
+      <div class="stat-card" style="border:1px solid #00ff8822;">
+        <div class="stat-num" id="stat-done" style="color:#00ff88;">0</div>
+        <div class="stat-label">COMPLETED</div>
+      </div>
+      <div class="stat-card" style="border:1px solid #ffaa0022;">
+        <div class="stat-num" id="stat-wip" style="color:#ffaa00;">0</div>
+        <div class="stat-label">IN PROGRESS</div>
+      </div>
+      <div class="stat-card" style="border:1px solid #6677ff22;">
+        <div class="stat-num" id="stat-todo" style="color:#6677ff;">0</div>
+        <div class="stat-label">TO DO</div>
+      </div>
+    </div>
+
+    <div id="quick-bar">
+      <label>⚡ QUICK COMPLETE</label>
+      <input id="quick-name" type="text" placeholder="Room name — press Enter or click Done"
+             onkeydown="if(event.key==='Enter') quickComplete()"/>
+      <button id="quick-submit" onclick="quickComplete()">✓ MARK DONE</button>
+      <span id="quick-hint">Logs today's date + generates an AI summary automatically</span>
+    </div>
+
+    <div id="controls">
+      <input id="search" type="text" placeholder="Search rooms, notes, tags..." oninput="renderCards()"/>
+      <button class="filter-btn active" data-filter="All"         onclick="setFilter(this)">ALL</button>
+      <button class="filter-btn"        data-filter="Completed"   onclick="setFilter(this)">COMPLETED</button>
+      <button class="filter-btn"        data-filter="In Progress" onclick="setFilter(this)">IN PROGRESS</button>
+      <button class="filter-btn"        data-filter="To Do"       onclick="setFilter(this)">TO DO</button>
+    </div>
+
+    <div id="cards"></div>
+    <div id="empty">NO ROOMS FOUND</div>
+  </div>
+
+  <div id="modal-overlay" onclick="overlayClick(event)">
+    <div id="modal">
+      <div id="modal-title">➕ ADD ROOM</div>
+      <div class="field"><label>ROOM NAME *</label><input id="f-name" type="text" placeholder="e.g. SOC Level 1"/></div>
+      <div class="field"><label>CATEGORY</label><input id="f-category" type="text" placeholder="e.g. Learning Path, CTF"/></div>
+      <div class="field"><label>DATE</label><input id="f-date" type="date"/></div>
+      <div class="field"><label>TAGS (comma separated)</label><input id="f-tags" type="text" placeholder="siem, linux, web"/></div>
+      <div id="field-row">
+        <div class="field" style="margin:0;">
+          <label>STATUS</label>
+          <select id="f-status">
+            <option>To Do</option>
+            <option>In Progress</option>
+            <option>Completed</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label>DIFFICULTY</label>
+          <select id="f-difficulty">
+            <option>Easy</option>
+            <option>Medium</option>
+            <option>Hard</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>NOTES</label><textarea id="f-notes" rows="4" placeholder="Key takeaways, tools used, commands to remember..."></textarea></div>
+      <div id="modal-actions">
+        <button id="cancel-btn" onclick="closeModal()">CANCEL</button>
+        <button id="save-btn"   onclick="saveRoom()">SAVE</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var STORAGE_KEY = "thm-tracker-qwort";
+  var STATUS_LIST = ["To Do", "In Progress", "Completed"];
+  var STATUS_STYLE = {
+    "Completed":   { bg:"#0d2b1a", border:"#00ff88", text:"#00ff88" },
+    "In Progress": { bg:"#2b1f0a", border:"#ffaa00", text:"#ffaa00" },
+    "To Do":       { bg:"#1a1a2b", border:"#6677ff", text:"#6677ff" }
+  };
+  var DIFF_COLOR = { "Easy":"#00ff88", "Medium":"#ffaa00", "Hard":"#ff4466" };
+
+  var DEFAULT_ROOMS = [
+    { id:1, name:"Pre-Security",  status:"Completed",   difficulty:"Easy",   category:"Learning Path", notes:"Covers networking basics (OSI model, DNS, HTTP), Linux fundamentals, and web concepts. Essential groundwork for all other THM paths.", date:"2024-09-10", tags:["networking","linux","web"] },
+    { id:2, name:"SOC Level 1",   status:"In Progress", difficulty:"Medium", category:"Learning Path", notes:"Working through SIEM and log analysis modules.", date:"2024-11-01", tags:["siem","soc","logs"] }
+  ];
+
+  var rooms = [];
+  var currentFilter = "All";
+  var editingId = null;
+
+  /* ── STORAGE ── */
+  function loadRooms() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      rooms = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_ROOMS));
+    } catch(e) { rooms = JSON.parse(JSON.stringify(DEFAULT_ROOMS)); }
+  }
+  function saveRooms() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
+    showFlash();
+  }
+
+  /* ── FLASH ── */
+  function showFlash() {
+    var el = document.getElementById("flash");
+    el.style.display = "inline";
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.style.display = "none"; }, 1800);
+  }
+
+  /* ── STATS ── */
+  function updateStats() {
+    var done  = rooms.filter(function(r){ return r.status==="Completed"; }).length;
+    var wip   = rooms.filter(function(r){ return r.status==="In Progress"; }).length;
+    var todo  = rooms.filter(function(r){ return r.status==="To Do"; }).length;
+    var total = rooms.length;
+    var pct   = total ? Math.round((done/total)*100) : 0;
+    document.getElementById("stat-done").textContent = done;
+    document.getElementById("stat-wip").textContent  = wip;
+    document.getElementById("stat-todo").textContent = todo;
+    document.getElementById("progress-fill").style.width = pct + "%";
+    document.getElementById("progress-pct").textContent  = done+"/"+total+" ROOMS · "+pct+"%";
+  }
+
+  /* ── ESCAPE HTML ── */
+  function escHtml(str) {
+    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  /* ── RENDER CARDS ── */
+  function renderCards() {
+    var q = document.getElementById("search").value.toLowerCase();
+    var filtered = rooms.filter(function(r) {
+      var matchF = currentFilter==="All" || r.status===currentFilter;
+      var matchS = r.name.toLowerCase().indexOf(q)!==-1 ||
+                   r.notes.toLowerCase().indexOf(q)!==-1 ||
+                   (r.tags||[]).some(function(t){ return t.toLowerCase().indexOf(q)!==-1; });
+      return matchF && matchS;
+    });
+
+    var container = document.getElementById("cards");
+    var empty     = document.getElementById("empty");
+    container.innerHTML = "";
+    if (filtered.length===0) { empty.style.display="block"; return; }
+    empty.style.display = "none";
+
+    filtered.forEach(function(room) {
+      var sc       = STATUS_STYLE[room.status];
+      var dc       = DIFF_COLOR[room.difficulty] || "#c8d8e8";
+      var tags     = (room.tags||[]).map(function(t){ return '<span class="tag">#'+escHtml(t)+'</span>'; }).join("");
+      var dateBadge = room.date     ? '<span class="card-date">'+escHtml(room.date)+'</span>' : "";
+      var catBadge  = room.category ? '<span class="badge" style="color:#4a6a8a">'+escHtml(room.category.toUpperCase())+'</span>' : "";
+      var diffBadge = room.difficulty ? '<span class="badge" style="color:'+dc+'">'+escHtml(room.difficulty.toUpperCase())+'</span>' : "";
+
+      // notes or loading indicator
+      var notesHtml = "";
+      if (room.loadingSummary) {
+        notesHtml = '<div class="ai-loading">&#129302; Generating summary<div class="ai-loading-dots"><span></span><span></span><span></span></div></div>';
+      } else if (room.notes) {
+        notesHtml = '<div class="card-notes">'+escHtml(room.notes)+'</div>';
+      }
+
+      var doneBtn = room.status !== "Completed"
+        ? '<button class="done-btn" onclick="markDone('+room.id+')">&#10003; DONE</button>'
+        : "";
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.id = "card-" + room.id;
+      card.style.border = "1px solid "+sc.border+"33";
+      card.innerHTML =
+        '<div class="card-inner">'+
+          '<div class="card-left">'+
+            '<div class="card-top">'+
+              '<span class="card-name">'+escHtml(room.name)+'</span>'+
+              catBadge + diffBadge +
+            '</div>'+
+            notesHtml +
+            '<div class="card-meta">'+tags+dateBadge+'</div>'+
+          '</div>'+
+          '<div class="card-right">'+
+            '<button class="status-btn" style="background:'+sc.bg+';border:1px solid '+sc.border+';color:'+sc.text+'" onclick="cycleStatus('+room.id+')">'+escHtml(room.status.toUpperCase())+'</button>'+
+            '<div class="card-actions">'+
+              '<button class="edit-btn" onclick="openEdit('+room.id+')">EDIT</button>'+
+              doneBtn +
+              '<button class="del-btn" onclick="deleteRoom('+room.id+')">DEL</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      container.appendChild(card);
+    });
+  }
+
+  /* ── FILTER ── */
+  function setFilter(btn) {
+    currentFilter = btn.getAttribute("data-filter");
+    document.querySelectorAll(".filter-btn").forEach(function(b){ b.classList.remove("active"); });
+    btn.classList.add("active");
+    renderCards();
+  }
+
+  /* ── CYCLE STATUS ── */
+  function cycleStatus(id) {
+    for (var i=0; i<rooms.length; i++) {
+      if (rooms[i].id===id) {
+        var next = STATUS_LIST[(STATUS_LIST.indexOf(rooms[i].status)+1) % STATUS_LIST.length];
+        rooms[i].status = next;
+        if (next==="Completed") {
+          rooms[i].date = new Date().toISOString().split("T")[0];
+          fetchSummary(id);
+        }
+        break;
+      }
+    }
+    saveRooms(); updateStats(); renderCards();
+  }
+
+  /* ── MARK DONE (card button) ── */
+  function markDone(id) {
+    for (var i=0; i<rooms.length; i++) {
+      if (rooms[i].id===id) {
+        rooms[i].status = "Completed";
+        rooms[i].date   = new Date().toISOString().split("T")[0];
+        fetchSummary(id);
+        break;
+      }
+    }
+    saveRooms(); updateStats(); renderCards();
+    var card = document.getElementById("card-"+id);
+    if (card) { card.classList.add("just-completed"); setTimeout(function(){ card.classList.remove("just-completed"); }, 400); }
+  }
+
+  /* ── QUICK COMPLETE (bar) ── */
+  function quickComplete() {
+    var nameEl = document.getElementById("quick-name");
+    var name   = nameEl.value.trim();
+    if (!name) {
+      nameEl.style.borderColor = "#ff4466";
+      setTimeout(function(){ nameEl.style.borderColor = "#1a3a2a"; }, 1200);
+      return;
+    }
+    var today   = new Date().toISOString().split("T")[0];
+    var existing = null;
+    for (var i=0; i<rooms.length; i++) {
+      if (rooms[i].name.toLowerCase()===name.toLowerCase()) { existing=rooms[i]; break; }
+    }
+    var targetId;
+    if (existing) {
+      existing.status = "Completed";
+      existing.date   = today;
+      targetId = existing.id;
+    } else {
+      targetId = Date.now();
+      rooms.push({ id:targetId, name:name, status:"Completed", difficulty:"Easy", category:"", notes:"", date:today, tags:[] });
+    }
+    fetchSummary(targetId);
+    saveRooms(); updateStats(); renderCards();
+    nameEl.value = "";
+    nameEl.style.borderColor = "#00ff88";
+    setTimeout(function(){ nameEl.style.borderColor = "#1a3a2a"; }, 1200);
+    var card = document.getElementById("card-"+targetId);
+    if (card) { card.classList.add("just-completed"); setTimeout(function(){ card.classList.remove("just-completed"); }, 400); }
+  }
+
+  /* ── AI SUMMARY ── */
+  function fetchSummary(id) {
+    var room = null;
+    for (var i=0; i<rooms.length; i++) { if (rooms[i].id===id) { room=rooms[i]; break; } }
+    if (!room) return;
+
+    // Don't overwrite existing notes
+    if (room.notes && room.notes.trim().length > 10) return;
+
+    room.loadingSummary = true;
+    renderCards();
+
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: "You are a concise cybersecurity learning assistant. When given a TryHackMe room name, write a 2-3 sentence summary of what the room covers and what key skills or tools a learner would have practised. Write in past tense as if the user just completed it. Be specific to that room — mention actual techniques, tools, or concepts covered. Keep it under 60 words. Return plain text only, no markdown.",
+        messages: [{ role: "user", content: "TryHackMe room: " + room.name }]
+      })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var summary = "";
+      if (data.content && data.content.length > 0) {
+        for (var i=0; i<data.content.length; i++) {
+          if (data.content[i].type==="text") { summary = data.content[i].text.trim(); break; }
+        }
+      }
+      for (var j=0; j<rooms.length; j++) {
+        if (rooms[j].id===id) {
+          rooms[j].loadingSummary = false;
+          rooms[j].notes = summary || "Completed. Add your own notes via EDIT.";
+          break;
+        }
+      }
+      saveRooms(); renderCards();
+    })
+    .catch(function() {
+      for (var j=0; j<rooms.length; j++) {
+        if (rooms[j].id===id) {
+          rooms[j].loadingSummary = false;
+          // Leave notes blank so user can add manually
+          break;
+        }
+      }
+      renderCards();
+    });
+  }
+
+  /* ── DELETE ── */
+  function deleteRoom(id) {
+    rooms = rooms.filter(function(r){ return r.id!==id; });
+    saveRooms(); updateStats(); renderCards();
+  }
+
+  /* ── MODAL ── */
+  function openAdd() {
+    editingId = null;
+    document.getElementById("modal-title").textContent = "➕ ADD ROOM";
+    clearForm();
+    document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
+    document.getElementById("modal-overlay").classList.add("open");
+  }
+  function openEdit(id) {
+    var room = null;
+    for (var i=0; i<rooms.length; i++) { if (rooms[i].id===id) { room=rooms[i]; break; } }
+    if (!room) return;
+    editingId = id;
+    document.getElementById("modal-title").textContent  = "✏️ EDIT ROOM";
+    document.getElementById("f-name").value       = room.name;
+    document.getElementById("f-category").value   = room.category || "";
+    document.getElementById("f-date").value        = room.date || "";
+    document.getElementById("f-tags").value        = (room.tags||[]).join(", ");
+    document.getElementById("f-status").value      = room.status;
+    document.getElementById("f-difficulty").value  = room.difficulty;
+    document.getElementById("f-notes").value       = room.notes || "";
+    document.getElementById("modal-overlay").classList.add("open");
+  }
+  function closeModal() { document.getElementById("modal-overlay").classList.remove("open"); }
+  function overlayClick(e) { if (e.target===document.getElementById("modal-overlay")) closeModal(); }
+  function clearForm() {
+    ["f-name","f-category","f-date","f-tags","f-notes"].forEach(function(id){ document.getElementById(id).value=""; });
+    document.getElementById("f-status").value = "To Do";
+    document.getElementById("f-difficulty").value = "Easy";
+  }
+  function saveRoom() {
+    var nameEl = document.getElementById("f-name");
+    var name   = nameEl.value.trim();
+    if (!name) { nameEl.style.borderColor="#ff4466"; return; }
+    nameEl.style.borderColor = "#1a2a3a";
+    var tags = document.getElementById("f-tags").value.split(",").map(function(t){ return t.trim(); }).filter(Boolean);
+    var data = {
+      name:       name,
+      category:   document.getElementById("f-category").value.trim(),
+      date:       document.getElementById("f-date").value,
+      tags:       tags,
+      status:     document.getElementById("f-status").value,
+      difficulty: document.getElementById("f-difficulty").value,
+      notes:      document.getElementById("f-notes").value.trim()
+    };
+    if (editingId!==null) {
+      for (var j=0; j<rooms.length; j++) {
+        if (rooms[j].id===editingId) { rooms[j]=Object.assign({id:editingId},data); break; }
+      }
+    } else {
+      data.id = Date.now();
+      rooms.push(data);
+    }
+    saveRooms(); updateStats(); renderCards(); closeModal();
+  }
+
+  /* ── INIT ── */
+  loadRooms();
+  updateStats();
+  renderCards();
+</script>
+</body>
+</html>
