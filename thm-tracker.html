@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>THM Progress Tracker — Qwort</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080c10; font-family: 'Courier New', monospace; color: #c8d8e8; }
+    input, select, textarea, button { font-family: 'Courier New', monospace; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080c10; }
+    ::-webkit-scrollbar-thumb { background: #1a3a5a; border-radius: 3px; }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const STORAGE_KEY = "thm-tracker-qwort";
+    const STATUS = ["To Do", "In Progress", "Completed"];
+    const DIFFICULTY = ["Easy", "Medium", "Hard"];
+    const FILTERS = ["All", "Completed", "In Progress", "To Do"];
+
+    const STATUS_COLORS = {
+      "Completed":   { bg: "#0d2b1a", border: "#00ff88", text: "#00ff88" },
+      "In Progress": { bg: "#2b1f0a", border: "#ffaa00", text: "#ffaa00" },
+      "To Do":       { bg: "#1a1a2b", border: "#6677ff", text: "#6677ff" },
+    };
+    const DIFF_COLORS = { Easy: "#00ff88", Medium: "#ffaa00", Hard: "#ff4466" };
+
+    const DEFAULT_ROOMS = [
+      { id: 1, name: "Pre-Security", status: "Completed", difficulty: "Easy", category: "Learning Path", notes: "Covered networking basics, web fundamentals, and Linux.", date: "2024-09-10", tags: ["networking", "linux", "web"] },
+      { id: 2, name: "SOC Level 1",  status: "In Progress", difficulty: "Medium", category: "Learning Path", notes: "Working through SIEM and log analysis modules.", date: "2024-11-01", tags: ["siem", "soc", "logs"] },
+    ];
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : DEFAULT_ROOMS;
+      } catch { return DEFAULT_ROOMS; }
+    }
+
+    function save(rooms) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms)); } catch {}
+    }
+
+    const emptyForm = { name: "", status: "To Do", difficulty: "Easy", category: "", notes: "", date: new Date().toISOString().split("T")[0], tags: "" };
+
+    export default function App() {
+      const [rooms, setRooms]       = useState(load);
+      const [filter, setFilter]     = useState("All");
+      const [search, setSearch]     = useState("");
+      const [showForm, setShowForm] = useState(false);
+      const [editId, setEditId]     = useState(null);
+      const [form, setForm]         = useState(emptyForm);
+      const [flash, setFlash]       = useState("");
+
+      useEffect(() => { save(rooms); }, [rooms]);
+
+      const filtered = rooms.filter(r => {
+        const matchF = filter === "All" || r.status === filter;
+        const q = search.toLowerCase();
+        const matchS = r.name.toLowerCase().includes(q) || r.notes.toLowerCase().includes(q) || (r.tags||[]).some(t => t.toLowerCase().includes(q));
+        return matchF && matchS;
+      });
+
+      const stats = {
+        total: rooms.length,
+        done: rooms.filter(r => r.status === "Completed").length,
+        wip:  rooms.filter(r => r.status === "In Progress").length,
+        todo: rooms.filter(r => r.status === "To Do").length,
+      };
+      const pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
+
+      function openAdd() {
+        setForm({ ...emptyForm, date: new Date().toISOString().split("T")[0] });
+        setEditId(null); setShowForm(true);
+      }
+      function openEdit(r) {
+        setForm({ ...r, tags: (r.tags||[]).join(", ") });
+        setEditId(r.id); setShowForm(true);
+      }
+      function submit() {
+        if (!form.name.trim()) return;
+        const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
+        if (editId !== null) {
+          setRooms(prev => prev.map(r => r.id === editId ? { ...form, tags, id: editId } : r));
+        } else {
+          setRooms(prev => [...prev, { ...form, tags, id: Date.now() }]);
+        }
+        setFlash(editId !== null ? "Room updated!" : "Room added!");
+        setTimeout(() => setFlash(""), 2000);
+        setShowForm(false);
+      }
+      function del(id) { setRooms(prev => prev.filter(r => r.id !== id)); }
+      function cycleStatus(id) {
+        setRooms(prev => prev.map(r => {
+          if (r.id !== id) return r;
+          return { ...r, status: STATUS[(STATUS.indexOf(r.status) + 1) % STATUS.length] };
+        }));
+      }
+
+      return (
+        <div style={{ background: "#080c10", minHeight: "100vh", paddingBottom: 60 }}>
+
+          {/* Header */}
+          <div style={{ borderBottom: "1px solid #1a2a3a", padding: "24px 32px 20px", background: "linear-gradient(180deg,#0c1520,#080c10)", position: "sticky", top: 0, zIndex: 10 }}>
+            <div style={{ maxWidth: 860, margin: "0 auto" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: "linear-gradient(135deg,#00ff88,#00ccff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "0 0 18px #00ff8855" }}>⚡</div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#e8f4ff", letterSpacing: 1 }}>THM Progress Tracker</div>
+                    <div style={{ fontSize: 11, color: "#4a6a8a", letterSpacing: 2 }}>QWORT // TRYHACKME.COM</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {flash && <span style={{ fontSize: 11, color: "#00ff88", letterSpacing: 1 }}>{flash}</span>}
+                  <a href="https://tryhackme.com/p/Qwort" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#4a6a8a", textDecoration: "none", letterSpacing: 1, padding: "8px 14px", border: "1px solid #1a2a3a", borderRadius: 6 }}>MY PROFILE ↗</a>
+                  <button onClick={openAdd} style={{ background: "linear-gradient(135deg,#00ff88,#00ccff)", border: "none", borderRadius: 6, padding: "9px 18px", color: "#080c10", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>+ ADD ROOM</button>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ marginTop: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 11, color: "#4a6a8a", letterSpacing: 1 }}>
+                  <span>OVERALL COMPLETION</span>
+                  <span style={{ color: "#00ff88" }}>{stats.done}/{stats.total} ROOMS · {pct}%</span>
+                </div>
+                <div style={{ height: 6, background: "#0f1f2f", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#00ff88,#00ccff)", borderRadius: 3, transition: "width 0.5s ease", boxShadow: "0 0 10px #00ff8866" }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px 0" }}>
+
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 26 }}>
+              {[["COMPLETED", stats.done, "#00ff88"], ["IN PROGRESS", stats.wip, "#ffaa00"], ["TO DO", stats.todo, "#6677ff"]].map(([label, val, color]) => (
+                <div key={label} style={{ background: "#0c1520", border: `1px solid ${color}22`, borderRadius: 10, padding: "16px 0", textAlign: "center" }}>
+                  <div style={{ fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>{val}</div>
+                  <div style={{ fontSize: 10, color: "#4a6a8a", letterSpacing: 2, marginTop: 5 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search + filter */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search rooms, notes, tags..."
+                style={{ flex: 1, minWidth: 180, background: "#0c1520", border: "1px solid #1a2a3a", borderRadius: 7, padding: "9px 14px", color: "#c8d8e8", fontSize: 13, outline: "none" }} />
+              {FILTERS.map(f => (
+                <button key={f} onClick={() => setFilter(f)} style={{ background: filter===f ? "#0d2b1a" : "#0c1520", border: `1px solid ${filter===f ? "#00ff88" : "#1a2a3a"}`, borderRadius: 7, padding: "9px 14px", color: filter===f ? "#00ff88" : "#4a6a8a", fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>
+                  {f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            {/* Cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filtered.length === 0 && (
+                <div style={{ textAlign: "center", color: "#2a4a6a", padding: "50px 0", fontSize: 13, letterSpacing: 2 }}>NO ROOMS FOUND</div>
+              )}
+              {filtered.map(room => {
+                const sc = STATUS_COLORS[room.status];
+                return (
+                  <div key={room.id} style={{ background: "#0c1520", border: `1px solid ${sc.border}33`, borderRadius: 10, padding: "18px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: "#e8f4ff" }}>{room.name}</span>
+                          {room.category && <span style={{ fontSize: 10, color: "#4a6a8a", background: "#0f1f2f", padding: "2px 8px", borderRadius: 4, letterSpacing: 1 }}>{room.category.toUpperCase()}</span>}
+                          {room.difficulty && <span style={{ fontSize: 10, color: DIFF_COLORS[room.difficulty], background: "#0f1f2f", padding: "2px 8px", borderRadius: 4, letterSpacing: 1 }}>{room.difficulty.toUpperCase()}</span>}
+                        </div>
+                        {room.notes && <div style={{ fontSize: 13, color: "#7a9ab8", lineHeight: 1.65, marginBottom: 8, whiteSpace: "pre-wrap" }}>{room.notes}</div>}
+                        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                          {(room.tags||[]).map(tag => (
+                            <span key={tag} style={{ fontSize: 10, color: "#00ccff", background: "#00ccff11", padding: "2px 8px", borderRadius: 4, letterSpacing: 1 }}>#{tag}</span>
+                          ))}
+                          {room.date && <span style={{ fontSize: 10, color: "#2a4a6a", marginLeft: 2 }}>{room.date}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                        <button onClick={() => cycleStatus(room.id)} style={{ background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 6, padding: "5px 12px", color: sc.text, fontSize: 11, cursor: "pointer", letterSpacing: 1, whiteSpace: "nowrap" }}>
+                          {room.status.toUpperCase()}
+                        </button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => openEdit(room)} style={{ background: "#0f1f2f", border: "1px solid #1a2a3a", borderRadius: 5, padding: "4px 10px", color: "#4a6a8a", fontSize: 11, cursor: "pointer" }}>EDIT</button>
+                          <button onClick={() => del(room.id)} style={{ background: "#1a0a0a", border: "1px solid #ff446633", borderRadius: 5, padding: "4px 10px", color: "#ff4466", fontSize: 11, cursor: "pointer" }}>DEL</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Modal */}
+          {showForm && (
+            <div onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}
+              style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+              <div style={{ background: "#0c1520", border: "1px solid #1a3a5a", borderRadius: 12, padding: "28px", width: "100%", maxWidth: 480, boxShadow: "0 0 40px #00ff8822", maxHeight: "90vh", overflowY: "auto" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#e8f4ff", marginBottom: 22, letterSpacing: 1 }}>
+                  {editId !== null ? "✏️  EDIT ROOM" : "➕  ADD ROOM"}
+                </div>
+
+                {[
+                  { label: "ROOM NAME *", key: "name", type: "text", placeholder: "e.g. SOC Level 1" },
+                  { label: "CATEGORY", key: "category", type: "text", placeholder: "e.g. Learning Path, CTF, Challenge" },
+                  { label: "DATE", key: "date", type: "date" },
+                  { label: "TAGS (comma separated)", key: "tags", type: "text", placeholder: "siem, linux, web" },
+                ].map(f => (
+                  <div key={f.key} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, color: "#4a6a8a", letterSpacing: 2, marginBottom: 5 }}>{f.label}</div>
+                    <input type={f.type} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                      style={{ width: "100%", background: "#080c10", border: "1px solid #1a2a3a", borderRadius: 6, padding: "9px 12px", color: "#c8d8e8", fontSize: 13, outline: "none" }} />
+                  </div>
+                ))}
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                  {[["STATUS", "status", STATUS], ["DIFFICULTY", "difficulty", DIFFICULTY]].map(([label, key, opts]) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 10, color: "#4a6a8a", letterSpacing: 2, marginBottom: 5 }}>{label}</div>
+                      <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                        style={{ width: "100%", background: "#080c10", border: "1px solid #1a2a3a", borderRadius: 6, padding: "9px 12px", color: "#c8d8e8", fontSize: 13, outline: "none" }}>
+                        {opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 10, color: "#4a6a8a", letterSpacing: 2, marginBottom: 5 }}>NOTES</div>
+                  <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    placeholder="Key takeaways, tools used, commands to remember, flags captured..."
+                    rows={4}
+                    style={{ width: "100%", background: "#080c10", border: "1px solid #1a2a3a", borderRadius: 6, padding: "9px 12px", color: "#c8d8e8", fontSize: 13, outline: "none", resize: "vertical" }} />
+                </div>
+
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowForm(false)} style={{ background: "#0f1f2f", border: "1px solid #1a2a3a", borderRadius: 6, padding: "9px 20px", color: "#4a6a8a", fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>CANCEL</button>
+                  <button onClick={submit} style={{ background: "linear-gradient(135deg,#00ff88,#00ccff)", border: "none", borderRadius: 6, padding: "9px 24px", color: "#080c10", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>SAVE</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
